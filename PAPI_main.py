@@ -1,13 +1,13 @@
-#8h0min
+#9h20min
 
 #TO DO
-#Pular Linha Quando Input de Outro Ano
+# Pular Linha se Ano mudar
 #Calcular IR
-#Criar e Formatar Abas Padrão (INICIO - COM PORCENTAGEM)
+#Criar e Formatar Dashboard (INICIO - COM PORCENTAGEM)
 
 
 import os
-os.chdir(r"C:\Users\lucas\OneDrive\Área de Trabalho\PJT_Planilha FII")      #Alterar Diretório de Execução do Script Python
+os.chdir(r"D:\GitHub\Projeto_Automatiza_Planilha_Investimentos-PAPI")      #Alterar Diretório de Execução do Script Python
 
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter                                #Biblioteca para Função de Converte para Letras Índice da Coluna           
@@ -28,7 +28,7 @@ borda_externa = Side(border_style="medium", color="000000")
 #Criar Novo Arquivo e Formatar Abas Padrão
 def criar_arquivo(arquivo):
     aba_inicio = arquivo.active                             #Seleciona Aba Ativa - Criada Automaticamente
-    aba_inicio.title = "INICIO"                             #Nomeia Aba Criada Automaticamente
+    aba_inicio.title = "DASHBOARD"                             #Nomeia Aba Criada Automaticamente
     ocultar_grades(aba_inicio)
     
     
@@ -49,11 +49,10 @@ def criar_arquivo(arquivo):
     nova_aba.cell(row=1, column=4).value = "Investido"
     nova_aba.cell(row=1, column=5).value = "Data"
 
-    #Alterção do Estilo e Borda da Célula em Sequência com o Mesmo Padrão
-    for linha in range(1,4):
-        for celula in nova_aba[linha]:
-            alterar_estilo_celula(celula)
-            alterar_borda(celula, borda_padrao, borda_padrao, borda_padrao, borda_padrao)
+    #Alterção do Estilo e Borda da Célula Padrão
+    for celula in nova_aba[1]:
+        alterar_estilo_celula(celula)
+        alterar_borda(celula, borda_padrao, borda_padrao, borda_padrao, borda_padrao)
 
 
 #Criar Aba Nova para FII e Formatar
@@ -144,7 +143,7 @@ def alterar_estilo_celula(celula):
     #Nome da Fonte; Tamanho; Negrito; Italico; Cor
 
 
-#Boras
+#Bordas
 def alterar_borda(celula, left, right, top, bottom):
     celula.border = Border(left=left, right=right, top=top, bottom=bottom)
 
@@ -154,10 +153,20 @@ def alterar_borda(celula, left, right, top, bottom):
 #Obter Linha Vazia
 #Vai até ultima que sofreu modificação (max_row)
 def ultima_linha(aba):
-    for row in range(2, aba.max_row+1):       
+    #Pula Primeira Linha (Vai ser Vazia na Aba do Ativo)
+    #For: max_row+1 pois a ultima editada vai ter conteudo, logo a próxima que é a vazia
+    contador = 0
+    for row in range(2, aba.max_row+1):
         if aba.cell(row=row, column=2).value is None:
-            return row
-    return aba.max_row + 1 #Se for 0 retorna 1
+            contador += 1
+        if contador == 2: 
+            print("aqui??")
+            return row-1
+    print("aqui")
+    return aba.max_row + 1  
+#Se for Aba TOTAL_APORTES e Primeiro Aporte max_row é 1
+#Mas é o Cabeçalho, então linha para adicionar é a 2
+# E Se for Segundo Aporte: max_row+1 pois a ultima editada vai ter conteudo, logo a próxima que é a vazia
 
 
 #Função para Adicionar Dados na Aba       
@@ -170,32 +179,36 @@ def adicionar_aporte(planilha, nome_fundo, cotas, valor, data, borda, aba_seleci
     print(f'Linha: {linha}')
 
     #Verificar se é Primeiro Input ou Não e Se Linha Anterior Não É Vazia
-    if linha <= 4:
-        ano_anterior = "1000"       #Adiciona um Valor Para Comparar Porque é Primeiro Input
-        print("1 Input")
+    if linha <= 4 and aba_selecionada != "TOTAL_APORTES":
+        ano_anterior = "01/01/0001"       #Adiciona um Valor Para Comparar Porque é Primeiro Input
+        ano_anterior = datetime.strptime(ano_anterior, "%d/%m/%Y")
+        print("1 Input Ativo")
+    elif linha <= 2 and aba_selecionada == "TOTAL_APORTES":
+        ano_anterior = "01/01/0001"       #Adiciona um Valor Para Comparar Porque é Primeiro Input
+        ano_anterior = datetime.strptime(ano_anterior, "%d/%m/%Y")
+        print("1 Input Ativo")
     elif aba.cell(row=linha-1, column=2).value is not None:
         #Como Pula então talvez depois ele pega a linha vazia
         #Se conteudo tiver vazio
-        print("aqUI")
+        print("2 Input")
         linha_anterior = linha - 1
         ano_anterior = aba.cell(row=linha_anterior, column = 5).value       #Pega Ultimo Ano Digitado formato datetime
-        ano_anterior = str(ano_anterior)
-        ano_anterior = ano_anterior[:4]         #Fatiamento Para Pegar Somente Ano
     else:
-        print("oi")
+        print("Aqui?")
         linha_anterior = linha
         ano_anterior = aba.cell(row=linha_anterior, column = 5).value       #Pega Ultimo Ano Digitado formato datetime
-        ano_anterior = str(ano_anterior)
-        ano_anterior = ano_anterior[:4]         #Fatiamento Para Pegar Somente Ano
-    print(ano_anterior)
 
-    if ano_anterior not in str(data.year):
+    if ano_anterior.year != data.year:
         print("Ano Diferente")
+        print(ano_anterior.year)
+        print(data.year)
     else:
         print("Ano Igual")
+        print(ano_anterior.year)
+        print(data.year)
 
     # Se Não é Aba Geral e Se É Ano Diferente (Se Ano Digitado é Diferente do Ultimo Adicionado) - Pular uma Linha
-    if aba_selecionada != "TOTAL_APORTES" and ano_anterior not in str(data.year) and linha > 4:
+    if aba_selecionada != "TOTAL_APORTES" and ano_anterior.year != data.year and linha > 4:
         linha += 1
         borda = borda_externa
         borda_topo = borda_externa
@@ -245,13 +258,13 @@ else:
 nome_ativo = input("ATIVO: ")
 nome_ativo = nome_ativo.replace('1',"")     #Retirar 11 se Usuário Informar
 nome_ativo = nome_ativo.upper()             #Converter Toda String Para Maiusculo
-cotas = 8
-valor = 100
-data = "20/12/2029"
+cotas = 10
+valor = 1
+data = "25/12/2026"
 data = datetime.strptime(data, "%d/%m/%Y")  # Converte String para datetime
-if nome_ativo not in arquivo.sheetnames:    #Se Fundo Informado Não Tem Aba
+if nome_ativo not in arquivo.sheetnames:    #Se Ativo Não Tem Aba
     criar_aba(arquivo, nome_ativo)
 adicionar_aporte(arquivo, nome_ativo, cotas, valor, data, borda_externa, nome_ativo)
-#adicionar_aporte(arquivo, nome_ativo, cotas, valor, data, borda_padrao, "TOTAL_APORTES")
+adicionar_aporte(arquivo, nome_ativo, cotas, valor, data, borda_padrao, "TOTAL_APORTES")
 
 arquivo.save(nome_arquivo)    #Sobrescreve o Arquivo/ Outro Nome Gera Outro Arquivo
