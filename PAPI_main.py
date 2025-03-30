@@ -1,7 +1,6 @@
 #9h20min
 
 #TO DO
-# Pular Linha se Ano mudar
 #Calcular IR
 #Criar e Formatar Dashboard (INICIO - COM PORCENTAGEM)
 
@@ -153,20 +152,18 @@ def alterar_borda(celula, left, right, top, bottom):
 #Obter Linha Vazia
 #Vai até ultima que sofreu modificação (max_row)
 def ultima_linha(aba):
-    #Pula Primeira Linha (Vai ser Vazia na Aba do Ativo)
-    #For: max_row+1 pois a ultima editada vai ter conteudo, logo a próxima que é a vazia
+    #Pula Primeira Linha (Vai ser Cabeçalho ou Vazia na Aba do Ativo)
+    #For: max_row+3 para ter linhas vazias extras
     contador = 0
-    for row in range(2, aba.max_row+1):
+    for row in range(2, aba.max_row + 3):
         if aba.cell(row=row, column=2).value is None:
             contador += 1
+        else:
+            contador = 0
         if contador == 2: 
-            print("aqui??")
             return row-1
-    print("aqui")
-    return aba.max_row + 1  
-#Se for Aba TOTAL_APORTES e Primeiro Aporte max_row é 1
-#Mas é o Cabeçalho, então linha para adicionar é a 2
-# E Se for Segundo Aporte: max_row+1 pois a ultima editada vai ter conteudo, logo a próxima que é a vazia
+    return aba.max_row
+    #Duas linhas Vazias Consecutivas Retorna Linha Anterior (Primeira Linha Vazia na Sequencia)
 
 
 #Função para Adicionar Dados na Aba       
@@ -176,7 +173,6 @@ def adicionar_aporte(planilha, nome_fundo, cotas, valor, data, borda, aba_seleci
 
     #Obter Linha
     linha = ultima_linha(aba)
-    print(f'Linha: {linha}')
 
     #Verificar se é Primeiro Input ou Não e Se Linha Anterior Não É Vazia
     if linha <= 4 and aba_selecionada != "TOTAL_APORTES":
@@ -259,8 +255,8 @@ nome_ativo = input("ATIVO: ")
 nome_ativo = nome_ativo.replace('1',"")     #Retirar 11 se Usuário Informar
 nome_ativo = nome_ativo.upper()             #Converter Toda String Para Maiusculo
 cotas = 10
-valor = 1
-data = "25/12/2026"
+valor = 12
+data = "25/12/2033"
 data = datetime.strptime(data, "%d/%m/%Y")  # Converte String para datetime
 if nome_ativo not in arquivo.sheetnames:    #Se Ativo Não Tem Aba
     criar_aba(arquivo, nome_ativo)
