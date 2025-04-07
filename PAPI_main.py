@@ -6,16 +6,16 @@
 
 
 import os
-os.chdir(r"D:\GitHub\Projeto_Automatiza_Planilha_Investimentos-PAPI")      #Alterar Diretório de Execução do Script Python
+import requests             #Requisição HTTP
+import win32com.client      #Trabalhar com MacroVBA
 
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter                                #Biblioteca para Função de Converte para Letras Índice da Coluna           
-from openpyxl.styles import Alignment, Font, Border, Side, numbers          #Biblioteca Para Formatação das Células
+from openpyxl.styles import Alignment, Font, Border, Side          #Biblioteca Para Formatação das Células
 from datetime import datetime                                               #Biblioteca Converte string para datetime
 #Alignment - Alinhamento
 #Font - Font
 #Border e Side- Borda
-#Numbers - Moeda
 
 
 #Variavel Global
@@ -40,6 +40,7 @@ def criar_arquivo(arquivo):
     alterar_largura_colunas_sequencia(nova_aba, 2, 6, 12.8)
 
     alterar_altura_linha(nova_aba, 1)
+    nova_aba.freeze_panes = "A2"    #Congelar Cabeçalho
 
     #Preencher Cabeçalho da Planilha
     nova_aba.cell(row=1, column=1).value = "Ativos"
@@ -75,6 +76,14 @@ def criar_aba(arquivo, nome_ativo):
     nova_aba.cell(row=3, column=9).value = "Total"
     nova_aba.cell(row=3, column=10).value = "Ano"
 
+    nova_aba.cell(row=2, column=12).value = "Total Cotas"
+    nova_aba.cell(row=2, column=13).value = "Preço Atual"
+    nova_aba.cell(row=2, column=14).value = "Total"
+    nova_aba.cell(row=3, column=13).value = cotacao_atual(nome_ativo)
+    nova_aba.cell(row=3, column = 13).number_format = 'R$ #,##0.00'
+
+    nova_aba.freeze_panes = "A4"    #Congelar Cabeçalho
+
     #Alterar Altura das Linhas 1 a 3
     for linha in range(1, 4):
         alterar_altura_linha(nova_aba, linha)
@@ -83,10 +92,12 @@ def criar_aba(arquivo, nome_ativo):
     nova_aba.column_dimensions['A'].width = 2.8
     nova_aba.column_dimensions['B'].width = 8.8
     nova_aba.column_dimensions['F'].width = 4.8
+    nova_aba.column_dimensions['K'].width = 4.8
 
     alterar_largura_colunas_sequencia(nova_aba, 2, 6, 12.8)
     alterar_largura_colunas_sequencia(nova_aba, 7, 11, 14.8)
-
+    alterar_largura_colunas_sequencia(nova_aba, 12, 15, 14.8)
+    
     #Alterção do Estilo da Célula em Sequência com o Mesmo Padrão
     for linha in range(1,4):
         for celula in nova_aba[linha]:
@@ -98,13 +109,15 @@ def criar_aba(arquivo, nome_ativo):
 
     #Alterção da Borda da Célula Mesclada Para Titulo
     for coluna in range(2, 6):
-        coluna_letra = get_column_letter(coluna)
         celula = nova_aba.cell(row=2, column=coluna)
         alterar_borda(celula, borda_externa, borda_externa, borda_externa, borda_externa)
     for coluna in range(7, 11):
-        coluna_letra = get_column_letter(coluna)
         celula = nova_aba.cell(row=2, column=coluna)
         alterar_borda(celula, borda_externa, borda_externa, borda_externa, borda_externa)
+    for coluna in range(12,15):
+        for linha in range(2,4):
+            celula = nova_aba.cell(row=linha, column=coluna)
+            alterar_borda(celula, borda_externa, borda_externa, borda_externa, borda_externa)
 
     #Alterção da Borda da Célula Para SubTitulo
     alterar_borda(nova_aba.cell(row=3, column=2), borda_externa, borda_padrao, borda_externa, borda_externa)
@@ -132,6 +145,76 @@ def alterar_largura_colunas_sequencia(nova_aba, coluna_inicio, coluna_final, tam
     for coluna in range(coluna_inicio, coluna_final):  
         letra_coluna = get_column_letter(coluna)                    #Converte para Letras
         nova_aba.column_dimensions[letra_coluna].width = tamanho    #Alterar Largura de Coluna
+
+
+#API para obter Cotação Em Tempo Real
+def cotacao_atual(aba):
+    url_api = "http://b3api.me/api/quote/"+aba
+    try:
+        resposta = requests.get(url_api)    #Get HTTP
+        resposta.raise_for_status()         #Garante que só respostas 200 (OK) vai continuar o código
+        cota = resposta.json()              #Dicionario em JSON
+        return cota["price"]                #Retorna Cota
+    except requests.exceptions.RequestException as erro:    #Exceção de Erro HTTP
+        print(f'Erro ao Conectar com API: {erro}')
+        return None
+
+
+#Adicionar MacroVBA
+def macro_vba(nome_arquivo):
+    excel = win32com.client.Dispatch("Excel.Application")   #Abrir o Excel via COM
+    #Component Object Model.
+    #Microsoft que permite que programas diferentes conversem entre si e controlem uns aos outros
+    excel.Visible = False  # Não exibe a janela do Excel
+
+    arquivo = excel.Workbooks.Open("Ativos B3.xlsm")
+
+    # Adiciona macro no módulo do Ativo
+    #Requisição HTTP quando abre o arquivo
+    vba_code = '''
+    Private Sub Workbook_Open()
+        Dim aba As Worksheet
+        Dim http As Object
+        Dim url As String
+        Dim resposta As String
+        Dim preco As Double
+        Dim inicio As Long, fim As Long
+        Dim codigo As String
+
+        For Each aba In ThisWorkbook.Worksheets
+            If aba.Name <> "DASHBOARD" And aba.Name <> "TOTAL_APORTES" Then
+                Set http = CreateObject("MSXML2.XMLHTTP")
+                codigo = aba.Name
+                url = "http://b3api.me/api/" & codigo
+
+                On Error Resume Next
+                http.Open "GET", url, False
+                http.Send
+
+                If http.Status = 200 Then
+                    resposta = http.responseText
+
+                    ' Extrair o valor da chave "price" do JSON (simplesmente com string, sem usar parser)
+                    inicio = InStr(resposta, """price"":") + Len("""price"":")
+                    fim = InStr(inicio, resposta, ",")
+                    If inicio > 0 And fim > inicio Then
+                        preco = Val(Mid(resposta, inicio, fim - inicio))
+                        aba.Range("M3").Value = preco
+                    End If
+                End If
+
+                On Error GoTo 0
+            End If
+        Next aba
+    End Sub
+    '''
+
+    # Acessar o módulo "ThisWorkbook" e adicionar VBA
+    arquivo.VBProject.VBComponents("ThisWorkbook").CodeModule.AddFromString(vba_code)
+    arquivo.Save()
+    arquivo.Close()     #Fechar Arquivo
+    excel.Quit()        #Fechar Excel
+    print("Macro com Sucesso")
 
 
 #Alterar Estilo da Célula com o Mesmo Padrão - Reutilização de Código
@@ -176,43 +259,35 @@ def adicionar_aporte(planilha, nome_fundo, cotas, valor, data, borda, aba_seleci
 
     #Verificar se é Primeiro Input ou Não e Se Linha Anterior Não É Vazia
     if linha <= 4 and aba_selecionada != "TOTAL_APORTES":
-        ano_anterior = "01/01/0001"       #Adiciona um Valor Para Comparar Porque é Primeiro Input
+        ano_anterior = "01/01/0001"       #Adiciona um Valor Para Comparar Porque é Primeiro Input (Aba Ativo)
         ano_anterior = datetime.strptime(ano_anterior, "%d/%m/%Y")
-        print("1 Input Ativo")
     elif linha <= 2 and aba_selecionada == "TOTAL_APORTES":
-        ano_anterior = "01/01/0001"       #Adiciona um Valor Para Comparar Porque é Primeiro Input
+        ano_anterior = "01/01/0001"       #Adiciona um Valor Para Comparar Porque é Primeiro Input (Aba Total Aportes)
         ano_anterior = datetime.strptime(ano_anterior, "%d/%m/%Y")
-        print("1 Input Ativo")
     elif aba.cell(row=linha-1, column=2).value is not None:
         #Como Pula então talvez depois ele pega a linha vazia
         #Se conteudo tiver vazio
-        print("2 Input")
         linha_anterior = linha - 1
         ano_anterior = aba.cell(row=linha_anterior, column = 5).value       #Pega Ultimo Ano Digitado formato datetime
     else:
-        print("Aqui?")
         linha_anterior = linha
-        ano_anterior = aba.cell(row=linha_anterior, column = 5).value       #Pega Ultimo Ano Digitado formato datetime
-
-    if ano_anterior.year != data.year:
-        print("Ano Diferente")
-        print(ano_anterior.year)
-        print(data.year)
-    else:
-        print("Ano Igual")
-        print(ano_anterior.year)
-        print(data.year)
+        ano_anterior = aba.cell(row=linha_anterior, column = 5).value       #Pega Ultimo Ano Digitado formato datetime'''
 
     # Se Não é Aba Geral e Se É Ano Diferente (Se Ano Digitado é Diferente do Ultimo Adicionado) - Pular uma Linha
     if aba_selecionada != "TOTAL_APORTES" and ano_anterior.year != data.year and linha > 4:
         linha += 1
         borda = borda_externa
         borda_topo = borda_externa
+        #Se Ano Anterior Foi Apenas um Aporte - Estilo
+        if aba.cell(row=linha_anterior-1, column = 2).value is None:
+            borda_top = borda_externa
+        else:
+            borda_top = borda_padrao
         #Formatar Borda do Fim do Ano Anterior
-        alterar_borda(aba.cell(row=linha_anterior, column = 2),borda, borda_padrao, borda_padrao, borda_externa)
-        alterar_borda(aba.cell(row=linha_anterior, column = 3),borda_padrao, borda_padrao, borda_padrao, borda_externa)
-        alterar_borda(aba.cell(row=linha_anterior, column = 4),borda_padrao, borda_padrao, borda_padrao, borda_externa)
-        alterar_borda(aba.cell(row=linha_anterior, column = 5),borda_padrao, borda, borda_padrao, borda_externa)    
+        alterar_borda(aba.cell(row=linha_anterior, column = 2),borda, borda_padrao, borda_top, borda_externa)
+        alterar_borda(aba.cell(row=linha_anterior, column = 3),borda_padrao, borda_padrao, borda_top, borda_externa)
+        alterar_borda(aba.cell(row=linha_anterior, column = 4),borda_padrao, borda_padrao, borda_top, borda_externa)
+        alterar_borda(aba.cell(row=linha_anterior, column = 5),borda_padrao, borda, borda_top, borda_externa)    
     else:
         borda_topo = borda_padrao
 
@@ -241,7 +316,12 @@ def adicionar_aporte(planilha, nome_fundo, cotas, valor, data, borda, aba_seleci
 
 ######################################################
 
-nome_arquivo = input("Nome da Planilha: ")+ ".xlsx"
+caminho = os.path.dirname(os.path.abspath(__file__))                        #Pega Caminho de Onde está o Arquivo
+os.chdir(caminho)                                                           #Alterar Diretório de Execução do Script Python
+#Garantir que o Python esteja da pasta do projeto 
+
+
+nome_arquivo = "Ativos B3.xlsx"
 
 #Verificação se Arquivo Existe
 if os.path.exists(nome_arquivo):
@@ -252,11 +332,10 @@ else:
    criar_arquivo(arquivo)
 
 nome_ativo = input("ATIVO: ")
-nome_ativo = nome_ativo.replace('1',"")     #Retirar 11 se Usuário Informar
 nome_ativo = nome_ativo.upper()             #Converter Toda String Para Maiusculo
 cotas = 10
 valor = 12
-data = "25/12/2033"
+data = "25/12/2020"
 data = datetime.strptime(data, "%d/%m/%Y")  # Converte String para datetime
 if nome_ativo not in arquivo.sheetnames:    #Se Ativo Não Tem Aba
     criar_aba(arquivo, nome_ativo)
