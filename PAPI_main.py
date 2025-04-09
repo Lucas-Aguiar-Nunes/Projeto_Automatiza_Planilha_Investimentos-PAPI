@@ -296,6 +296,9 @@ def adicionar_aporte(planilha, nome_fundo, cotas, valor, data, borda, aba_seleci
         aba.cell(row=linha, column = 1).value = nome_fundo
         alterar_borda(aba.cell(row=linha, column = 1),borda, borda_padrao, borda_padrao, borda_padrao)
         alterar_estilo_celula(aba.cell(row=linha, column = 1))
+    else:
+        for coluna in range(2,6):
+            alterar_borda(aba.cell(row=linha+1, column = coluna),None, None, borda_externa, None) # Borda Externa no Bottom Última Linha
     aba.cell(row=linha, column = 2).value = cotas
     aba.cell(row=linha, column = 3).value = valor
     aba.cell(row=linha, column = 3).number_format = 'R$ #,##0.00'
@@ -311,7 +314,7 @@ def adicionar_aporte(planilha, nome_fundo, cotas, valor, data, borda, aba_seleci
     alterar_borda(aba.cell(row=linha, column = 2),borda, borda_padrao, borda_topo, borda_padrao)
     alterar_borda(aba.cell(row=linha, column = 3),borda_padrao, borda_padrao, borda_topo, borda_padrao)
     alterar_borda(aba.cell(row=linha, column = 4),borda_padrao, borda_padrao, borda_topo, borda_padrao)
-    alterar_borda(aba.cell(row=linha, column = 5),borda_padrao, borda, borda_topo, borda_padrao)    
+    alterar_borda(aba.cell(row=linha, column = 5),borda_padrao, borda, borda_topo, borda_padrao)
 
 
 ######################################################
@@ -335,7 +338,7 @@ nome_ativo = input("ATIVO: ")
 nome_ativo = nome_ativo.upper()             #Converter Toda String Para Maiusculo
 cotas = 10
 valor = 12
-data = "25/12/2020"
+data = "25/12/2011"
 data = datetime.strptime(data, "%d/%m/%Y")  # Converte String para datetime
 if nome_ativo not in arquivo.sheetnames:    #Se Ativo Não Tem Aba
     criar_aba(arquivo, nome_ativo)
